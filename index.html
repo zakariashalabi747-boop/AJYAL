@@ -1023,6 +1023,14 @@ function deleteDepartment(id){
   closeModal();
   renderApp();
 }
+function assignEmployeeToDept(empId, deptId){
+  const dept = departments.find(d=>d.id===deptId);
+  if(!dept) return;
+  employees = employees.map(e => e.id===empId ? { ...e, department: dept.name } : e);
+  saveData();
+  showToast("Employee added to " + dept.name);
+  openDepartmentModal(deptId);
+}
 function openDepartmentModal(id){
   const dept = departments.find(d=>d.id===id);
   if(!dept) return;
@@ -1050,8 +1058,27 @@ function openDepartmentModal(id){
             <button class="icon-btn" onclick='closeModal(); openEmployeeModal(${JSON.stringify(e).replace(/'/g,"&#39;")})'>✎</button>
           </div>`).join("")}
       </div>`}
+
+      <div style="font-weight:800;font-size:13px;margin:14px 0 8px;color:var(--ink);">Add an existing employee with no department:</div>
+      ${(() => {
+        const unassigned = employees.filter(e => !(e.department||"").trim());
+        if (unassigned.length === 0) {
+          return `<div style="color:var(--ink-soft);font-size:12px;margin-bottom:14px;">No unassigned employees right now.</div>`;
+        }
+        return `<div style="max-height:200px;overflow-y:auto;margin-bottom:14px;border:1px solid var(--border);border-radius:12px;padding:6px;">
+          ${unassigned.map(e => `
+            <div class="emp-row" style="cursor:default;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div class="emp-avatar">${esc(e.name[0]||'؟')}</div>
+                <div><div class="emp-name">${esc(e.name)}</div><div class="emp-sub">#${esc(e.employeeNumber)}</div></div>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="assignEmployeeToDept('${e.id}','${dept.id}')">+ Add</button>
+            </div>`).join("")}
+        </div>`;
+      })()}
+
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-primary" style="flex:1;padding:11px;" onclick="closeModal(); openEmployeeModal({department:'${dept.name.replace(/'/g,"\\'")}'})">+ Add employee</button>
+        <button class="btn btn-primary" style="flex:1;padding:11px;" onclick="closeModal(); openEmployeeModal({department:'${dept.name.replace(/'/g,"\\'")}'})">+ New employee</button>
         <button class="btn btn-outline" style="flex:1;padding:11px;" onclick="addDepartment('${dept.id}')">+ Add sub-department</button>
       </div>
     </div>
