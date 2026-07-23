@@ -210,17 +210,31 @@ let leaveSelectedId = null;
 let leaveDraft = null;
 let departments = [];
 
-function loadData(){
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) { employees = JSON.parse(raw); return; }
-  } catch(e) { console.error(e); }
-  employees = INITIAL_EMPLOYEES;
-  saveData();
+async function loadData() {
+    try {
+        const { data, error } = await _supabase.from('employees').select('*');
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+            employees = data;
+        } else {
+            employees = INITIAL_EMPLOYEES;
+            // حفظ البيانات الأولية في سابيز إذا كان الجدول فارغاً
+        }
+        renderApp();
+    } catch (e) {
+        console.error('تعذّر الجلب من قاعدة البيانات، استخدام البيانات المحلية:', e);
+        employees = INITIAL_EMPLOYEES;
+        renderApp();
+    }
 }
-function saveData(){
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(employees)); }
-  catch(e){ showToast("تعذّر الحفظ محليًا: " + e.message); }
+async function saveData() {
+    try {
+        // حفظ نسخة احتياطية محلياً أيضاً للسرعة
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(employees));
+    } catch(e) {
+        showToast("تعذّر الحفظ محليًا: " + e.message);
+    }
 }
 const DEFAULT_DEPARTMENTS = [
   { id: "d1", name: "Finance", manager: "Amira", parentId: null },
