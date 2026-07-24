@@ -172,33 +172,7 @@ const LEAVE_TYPES = {
 };
 
 const INITIAL_EMPLOYEES = [
-  { employeeNumber: "5002", name: "Bashir Ben Yessad", dob: "1960-05-18", age: 66, experience: 21, joinDate: "2021-01-01", leaves: { annual: { balance: 243.75, taken: 0 }, sick: { balance: 12, taken: 0 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "5003", name: "Ashraf Saleh Abdelkarem Alamri", dob: "1976-02-08", age: 50, experience: 21, joinDate: "2024-01-01", leaves: { annual: { balance: 116.25, taken: 3 }, sick: { balance: 12, taken: 0 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "5005", name: "Abdulaziz Mohamed Issa Issa", dob: "1949-12-21", age: 77, experience: 24, joinDate: "2021-01-01", leaves: { annual: { balance: 243.75, taken: 0 }, sick: { balance: 12, taken: 0 }, emergency: { balance: 12, taken: 1 } } },
-  { employeeNumber: "5007", name: "Ahmed Hamza Ahmed Bashir", dob: "1960-01-26", age: 66, experience: 22, joinDate: "2021-01-01", leaves: { annual: { balance: 243.75, taken: 36 }, sick: { balance: 12, taken: 0 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "5012", name: "Mohammed Mustafa Mohammed Alkikli", dob: "1975-10-24", age: 51, experience: 8, joinDate: "2021-01-01", leaves: { annual: { balance: 160.5, taken: 12 }, sick: { balance: 12, taken: 1 }, emergency: { balance: 12, taken: 1 } } },
-  { employeeNumber: "5013", name: "Badar Omar Emhmed Alwair", dob: "1980-04-25", age: 46, experience: 8, joinDate: "2021-01-01", leaves: { annual: { balance: 162.5, taken: 60 }, sick: { balance: 12, taken: 0 }, emergency: { balance: 12, taken: 1 } } },
-  { employeeNumber: "5018", name: "Rabeea Asmaeil Ahmed Alqarqani", dob: "1986-02-28", age: 40, experience: 7, joinDate: "2021-01-01", leaves: { annual: { balance: 162.5, taken: 132 }, sick: { balance: 12, taken: 7 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "5019", name: "Salah Abdelwahab Haroun Bashir", dob: "1970-01-07", age: 56, experience: 6, joinDate: "2021-01-01", leaves: { annual: { balance: 162.5, taken: 6 }, sick: { balance: 12, taken: 0 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "5026", name: "Jalal Mohamed Hsouna Sfagsi", dob: "1966-07-06", age: 60, experience: 22, joinDate: "2021-01-01", leaves: { annual: { balance: 243.75, taken: 43 }, sick: { balance: 12, taken: 0 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "5028", name: "Fawzi Shaban Said Kashlaf", dob: "1957-01-01", age: 69, experience: 22, joinDate: "2021-01-01", leaves: { annual: { balance: 243.75, taken: 33 }, sick: { balance: 12, taken: 1 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "5032", name: "Ziad Ahmed Abdoullah Abughula", dob: "1976-05-27", age: 50, experience: 22, joinDate: "2021-01-01", leaves: { annual: { balance: 243.75, taken: 72 }, sick: { balance: 12, taken: 1 }, emergency: { balance: 12, taken: 1 } } },
-  { employeeNumber: "5034", name: "Amira Faraj Mohammed Elzitouni", dob: "1976-12-05", age: 50, experience: 18, joinDate: "2021-01-01", leaves: { annual: { balance: 162.5, taken: 106 }, sick: { balance: 12, taken: 2 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "5037", name: "Abdulhakim Mohmoud Salem Zagouzi", dob: "2000-03-30", age: 26, experience: 1, joinDate: "2025-09-14", leaves: { annual: { balance: 22.5, taken: 15 }, sick: { balance: 12, taken: 3 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "5052", name: "Jaad Hasan Adim Jad", dob: "1983-01-01", age: 43, experience: 6, joinDate: "2021-08-28", leaves: { annual: { balance: 145, taken: 75 }, sick: { balance: 12, taken: 2 }, emergency: { balance: 12, taken: 5 } }, notes: "Joined AOS" },
-  { employeeNumber: "5073", name: "Riyad Salem Abd", dob: "1980-05-13", age: 46, experience: 5, joinDate: "2022-03-22", leaves: { annual: { balance: 127.5, taken: 43 }, sick: { balance: 12, taken: 0 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "5082", name: "Zakaria Abnasser Shalabe", dob: "2005-06-16", age: 21, experience: 1, joinDate: "2025-07-01", leaves: { annual: { balance: 27.5, taken: 8 }, sick: { balance: 12, taken: 3 }, emergency: { balance: 12, taken: 2 } }, notes: "exam" },
-  { employeeNumber: "5083", name: "Ali Mehemmed Tabtaba", dob: "1976-02-05", age: 50, experience: 29, joinDate: "2023-10-01", leaves: { annual: { balance: 120, taken: 34 }, sick: { balance: 12, taken: 1 }, emergency: { balance: 12, taken: 4 } } },
-  { employeeNumber: "5084", name: "Manal Abdusalam Allafi", dob: "1994-02-09", age: 32, experience: 3, joinDate: "2023-10-08", leaves: { annual: { balance: 80, taken: 22 }, sick: { balance: 12, taken: 1 }, emergency: { balance: 12, taken: 4 } } },
-  { employeeNumber: "5086", name: "Mustafa Saeid Ariteemi", dob: "1999-08-29", age: 27, experience: 3, joinDate: "2023-12-01", leaves: { annual: { balance: 75, taken: 46 }, sick: { balance: 12, taken: 2 }, emergency: { balance: 12, taken: 2 } } },
-  { employeeNumber: "5089", name: "Mohamed Jamal Alsharif", dob: "1989-07-26", age: 37, experience: 2, joinDate: "2024-02-14", leaves: { annual: { balance: 70, taken: 19 }, sick: { balance: 12, taken: 0 }, emergency: { balance: 12, taken: 3 } }, notes: "6 Days E." },
-  { employeeNumber: "5094", name: "Hamza Abdulrazag Snani", dob: "2002-08-08", age: 24, experience: 1, joinDate: "2025-09-28", leaves: { annual: { balance: 20, taken: 5 }, sick: { balance: 12, taken: 4 }, emergency: { balance: 12, taken: 3 } } },
-  { employeeNumber: "5096", name: "Tariq Mohamed Ahmed", dob: "2003-09-02", age: 23, experience: 1, joinDate: "2025-02-01", leaves: { annual: { balance: 40, taken: 0 }, sick: { balance: 12, taken: 0 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "5098", name: "Saja Ali Al-Atrash", dob: "2000-10-29", age: 26, experience: 0, joinDate: "2025-10-21", leaves: { annual: { balance: 20, taken: 6 }, sick: { balance: 12, taken: 4 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "50100", name: "Omar Waqaas Farooqi", dob: "1986-06-10", age: 40, experience: 0, joinDate: "2026-01-01", leaves: { annual: { balance: 12.5, taken: 0 }, sick: { balance: 12, taken: 0 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "50101", name: "Mohamed Omar Al-Ramali", dob: "1992-09-22", age: 34, experience: 0, joinDate: "2026-01-17", leaves: { annual: { balance: 12.5, taken: 1 }, sick: { balance: 12, taken: 0 }, emergency: { balance: 12, taken: 0 } } },
-  { employeeNumber: "50102", name: "Abdulrahman Khalid Basheer", dob: "2004-07-12", age: 22, experience: 0, joinDate: "2026-07-13", leaves: { annual: { balance: 0, taken: 0 }, sick: { balance: 12, taken: 0 }, emergency: { balance: 12, taken: 0 } } },
-].map((e, i) => ({ id: "seed_" + i, phone: "", department: "", records: [], ...e }));
+  ].map((e, i) => ({ id: "seed_" + i, phone: "", department: "", records: [], ...e }));
 
 /* ============== STATE ============== */
 const STORAGE_KEY = "aos_employees_v1";
@@ -244,6 +218,9 @@ const DEFAULT_DEPARTMENTS = [
   { id: "d5", name: "Service", manager: "Ziad (with Mustafa & Drivers)", parentId: null },
   { id: "d6", name: "Procurement", manager: "Ali Khalifa / Ali Shafie", parentId: null },
 ];
+
+
+
 function loadOrgData(){
   try {
     const raw = localStorage.getItem(DEPTS_KEY);
