@@ -1309,6 +1309,14 @@ function openAdminModal(){
       </div>
       <div class="backup-note" style="margin-bottom:22px;">إدارة الأقسام (إضافة/حذف/نقل موظفين) تتم من صفحة "الهيكل التنظيمي".</div>
 
+      <div class="section-title" style="font-size:14px;border-top:1px dashed var(--border);padding-top:16px;">الترقية الشهرية للإجازة السنوية</div>
+      <div class="backup-note" style="margin-bottom:10px;line-height:1.8;">
+        تُضاف تلقائيًا أول كل شهر عبر قاعدة البيانات (بدون أي تدخل منك): <strong>2.5 يوم</strong> للموظف العادي،
+        و<strong>3.75 يوم</strong> لمن عمره أكبر من 50 سنة وخبرته أكبر من 20 سنة — حسب قانون العمل الليبي.
+        كل موظف يُحتسب له مرة واحدة فقط بالشهر مهما تكرر التشغيل.
+      </div>
+      <button class="btn btn-outline" id="admin-accrual-btn" style="width:100%;padding:10px;margin-bottom:22px;" onclick="runManualAccrual()">▶ تشغيل الترقية الآن يدويًا (اختياري / للاختبار)</button>
+
       <div class="section-title" style="font-size:14px;border-top:1px dashed var(--border);padding-top:16px;">إدارة المستخدمين (تسجيل الدخول)</div>
       <div class="backup-note" style="margin-bottom:10px;line-height:1.8;">
         لأسباب أمنية، إضافة أو حذف حسابات الدخول لا تتم من هذه الصفحة أبدًا — لأن ذلك يتطلب مفتاح Supabase السرّي (service role)
@@ -1338,6 +1346,17 @@ async function submitSettingsForm(){
   applySettingsToHeader();
   showToast("تم حفظ الإعدادات العامة");
   closeModal();
+}
+async function runManualAccrual(){
+  const btn = document.getElementById("admin-accrual-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "جاري التشغيل..."; }
+  const { data, error } = await _supabase.rpc("accrue_monthly_annual_leave");
+  if (btn) { btn.disabled = false; btn.textContent = "▶ تشغيل الترقية الآن يدويًا (اختياري / للاختبار)"; }
+  if (error) { showToast("فشل التشغيل: " + error.message, true); return; }
+  await loadEmployees();
+  renderApp();
+  const count = typeof data === "number" ? data : 0;
+  showToast(count > 0 ? `تم احتساب رصيد هذا الشهر لعدد ${count} موظف` : "لا يوجد موظفون جدد لاحتساب رصيدهم هذا الشهر (تم احتسابهم مسبقًا)");
 }
 
 /* ============================================================================
