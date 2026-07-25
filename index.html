@@ -180,16 +180,13 @@
   <div class="brand">
     <div class="brand-mark">AJ</div>
     <div>
-      <div class="brand-name" style="letter-spacing:1px;">AL AJYAL</div>
+      <div class="brand-name" id="brandNameLabel" style="letter-spacing:1px;">AL AJYAL</div>
       <div class="brand-sub" id="empCount">0 موظف</div>
     </div>
   </div>
   <div class="header-actions">
     <span class="db-status" id="dbStatus"><span class="dot"></span><span>متصل بقاعدة البيانات</span></span>
-    <button class="btn btn-outline btn-sm" onclick="downloadBackup()">⭳ نسخة احتياطية</button>
-    <label class="btn btn-outline btn-sm" style="display:inline-block;">
-      استيراد <input type="file" accept="application/json" style="display:none" onchange="restoreBackup(event)">
-    </label>
+    <button class="btn btn-outline btn-sm" onclick="openAdminModal()" title="إدارة الموقع">⚙ إدارة الموقع</button>
     <button class="btn btn-white" onclick="openEmployeeModal()">+ موظف جديد</button>
     <span class="user-chip" id="userEmailLabel">—</span>
     <button class="btn btn-outline btn-sm" onclick="signOut()">خروج</button>
@@ -231,6 +228,8 @@ const LEAVE_TYPES = {
 let currentSession = null;
 let employees = [];
 let departments = [];
+let settings = { companyName: "AL AJYAL", defaultAnnualBalance: 0, defaultSickBalance: 12, defaultEmergencyBalance: 12 };
+const SUPABASE_PROJECT_REF = (supabaseUrl.match(/https:\/\/([a-z0-9]+)\.supabase\.co/) || [])[1] || "";
 let page = "home";
 let selectedId = null;
 let leaveSelectedId = null;
@@ -291,10 +290,31 @@ function setDbStatus(ok){
 
 async function loadAll(){
   setAppLoading(true);
+  await loadSettings();
   await loadDepartments();
   await loadEmployees();
   setAppLoading(false);
+  applySettingsToHeader();
   setPage(page);
+}
+
+async function loadSettings(){
+  const { data, error } = await _supabase.from("settings").select("*").eq("id", "app").maybeSingle();
+  if (error || !data) {
+    if (error) showToast("تعذّر تحميل إعدادات النظام (تم استخدام القيم الافتراضية)", true);
+    return;
+  }
+  settings = {
+    companyName: data.company_name || "AL AJYAL",
+    defaultAnnualBalance: Number(data.default_annual_balance) || 0,
+    defaultSickBalance: Number(data.default_sick_balance) || 0,
+    defaultEmergencyBalance: Number(data.default_emergency_balance) || 0,
+  };
+}
+function applySettingsToHeader(){
+  const nameEl = document.getElementById("brandNameLabel");
+  if (nameEl) nameEl.textContent = settings.companyName;
+  document.title = settings.companyName + " - نظام الموظفين والإجازات";
 }
 
 async function loadDepartments(){
@@ -532,7 +552,7 @@ function restoreBackup(evt){
         if (data.employees && data.employees.length) await _supabase.from("employees").upsert(data.employees, { onConflict: "id" });
         if (data.leave_records && data.leave_records.length) await _supabase.from("leave_records").upsert(data.leave_records, { onConflict: "id" });
         await loadAll();
-        showToast("تـم استيراد البيانات إلى قاعدة البيانات بنجاح");
+        showToast("تم استيراد البيانات إلى قاعدة البيانات بنجاح");
       } catch(err){ showToast("فشل الاستيراد: " + err.message, true); }
       finally { setAppLoading(false); }
     });
@@ -572,9 +592,9 @@ async function saveEmployee(data){
   if (data.id) {
     ({ error } = await _supabase.from("employees").update(payload).eq("id", data.id));
   } else {
-    payload.annual_balance = 0; payload.annual_taken = 0;
-    payload.sick_balance = 12; payload.sick_taken = 0;
-    payload.emergency_balance = 12; payload.emergency_taken = 0;
+    payload.annual_balance = settings.defaultAnnualBalance; payload.annual_taken = 0;
+    payload.sick_balance = settings.defaultSickBalance; payload.sick_taken = 0;
+    payload.emergency_balance = settings.defaultEmergencyBalance; payload.emergency_taken = 0;
     const { data: inserted, error: insErr } = await _supabase.from("employees").insert(payload).select().single();
     error = insErr;
     if (inserted) newId = inserted.id;
@@ -1251,6 +1271,76 @@ function openDepartmentModal(id){
 }
 
 /* ============================================================================
+   ADMIN PANEL — إعدادات عامة + أدوات البيانات + إدارة المستخدمين
+   ========================================================================== */
+function openAdminModal(){
+  const dashboardUsersUrl = SUPABASE_PROJECT_REF
+    ? `https://supabase.com/dashboard/project/${SUPABASE_PROJECT_REF}/auth/users`
+    : `https://supabase.com/dashboard`;
+  document.getElementById("modalRoot").innerHTML = `
+  <div class="modal-overlay" onclick="if(event.target===this) closeModal();">
+    <div class="modal-box" style="max-width:560px;">
+      <div class="modal-head"><h3>⚙ إدارة الموقع</h3><button onclick="closeModal()">✕</button></div>
+
+      <div class="section-title" style="font-size:14px;">إعدادات عامة</div>
+      <div class="field"><label>اسم الشركة / الجهة (يظهر في أعلى الصفحة)</label>
+        <input id="admin-company-name" value="${esc(settings.companyName)}">
+      </div>
+      <div class="field-row">
+        <div class="field"><label>رصيد سنوية افتراضي لموظف جديد</label>
+          <input id="admin-default-annual" type="number" step="0.25" value="${settings.defaultAnnualBalance}"></div>
+        <div class="field"><label>رصيد مرضية افتراضي</label>
+          <input id="admin-default-sick" type="number" step="0.25" value="${settings.defaultSickBalance}"></div>
+      </div>
+      <div class="field" style="max-width:50%;">
+        <label>رصيد طارئة افتراضي</label>
+        <input id="admin-default-emergency" type="number" step="0.25" value="${settings.defaultEmergencyBalance}">
+      </div>
+      <div class="backup-note" style="margin-bottom:10px;">هذه الأرصدة تُستخدم تلقائيًا عند إضافة موظف جديد فقط، ولا تغيّر أرصدة الموظفين الحاليين.</div>
+      <button class="btn btn-primary" id="admin-settings-save-btn" style="width:100%;padding:10px;margin-bottom:22px;" onclick="submitSettingsForm()">💾 حفظ الإعدادات العامة</button>
+
+      <div class="section-title" style="font-size:14px;border-top:1px dashed var(--border);padding-top:16px;">إدارة البيانات</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+        <button class="btn btn-outline btn-sm" onclick="downloadBackup()">⭳ نسخة احتياطية كاملة</button>
+        <label class="btn btn-outline btn-sm" style="display:inline-block;">
+          استيراد نسخة احتياطية <input type="file" accept="application/json" style="display:none" onchange="restoreBackup(event)">
+        </label>
+        <button class="btn btn-outline btn-sm" onclick="closeModal(); setPage('org');">🏢 إدارة الأقسام</button>
+      </div>
+      <div class="backup-note" style="margin-bottom:22px;">إدارة الأقسام (إضافة/حذف/نقل موظفين) تتم من صفحة "الهيكل التنظيمي".</div>
+
+      <div class="section-title" style="font-size:14px;border-top:1px dashed var(--border);padding-top:16px;">إدارة المستخدمين (تسجيل الدخول)</div>
+      <div class="backup-note" style="margin-bottom:10px;line-height:1.8;">
+        لأسباب أمنية، إضافة أو حذف حسابات الدخول لا تتم من هذه الصفحة أبدًا — لأن ذلك يتطلب مفتاح Supabase السرّي (service role)
+        الذي لا يجوز وضعه في كود يعمل على المتصفح. إدارة من يقدر يسجّل دخول تتم مباشرة من لوحة تحكم Supabase.
+      </div>
+      <a href="${dashboardUsersUrl}" target="_blank" rel="noopener" class="btn btn-primary" style="width:100%;padding:10px;text-align:center;display:block;text-decoration:none;">
+        فتح إدارة المستخدمين في Supabase ↗
+      </a>
+    </div>
+  </div>`;
+}
+async function submitSettingsForm(){
+  const companyName = document.getElementById("admin-company-name").value.trim() || "AL AJYAL";
+  const annual = parseFloat(document.getElementById("admin-default-annual").value) || 0;
+  const sick = parseFloat(document.getElementById("admin-default-sick").value) || 0;
+  const emergency = parseFloat(document.getElementById("admin-default-emergency").value) || 0;
+  const btn = document.getElementById("admin-settings-save-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "جاري الحفظ..."; }
+  const { error } = await _supabase.from("settings").update({
+    company_name: companyName,
+    default_annual_balance: annual,
+    default_sick_balance: sick,
+    default_emergency_balance: emergency,
+  }).eq("id", "app");
+  if (error) { showToast("فشل حفظ الإعدادات: " + error.message, true); if (btn){btn.disabled=false;btn.textContent="💾 حفظ الإعدادات العامة";} return; }
+  await loadSettings();
+  applySettingsToHeader();
+  showToast("تم حفظ الإعدادات العامة");
+  closeModal();
+}
+
+/* ============================================================================
    MODALS
    ========================================================================== */
 function closeModal(){ document.getElementById("modalRoot").innerHTML = ""; }
@@ -1353,6 +1443,7 @@ function openConfirmModal(message, onConfirm){
     </div>
   </div>`;
 }
+
 /* ============================================================================
    MAIN RENDER
    ========================================================================== */
