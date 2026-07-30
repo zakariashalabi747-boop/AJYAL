@@ -196,8 +196,6 @@
   <button id="tab-reports" onclick="setPage('reports')">التقارير</button>
   <button id="tab-org" onclick="setPage('org')">الهيكل التنظيمي</button>
   <button id="tab-myprofile" onclick="setPage('myprofile')" style="display:none;">بياناتي</button>
-  <button id="tab-myteam" onclick="setPage('myteam')" style="display:none;">فريقي</button>
-  <button id="tab-requests" onclick="setPage('requests')" style="display:none;">طلبات الإجازة</button>
   <button id="tab-users" onclick="setPage('users')" style="display:none;">المستخدمون</button>
 </nav>
 
@@ -231,7 +229,6 @@ let currentUserEmail = "";
 let currentUserId = "";
 let currentUserRole = null;
 let currentUserEmployeeId = null;
-let currentUserManagedDeptId = null;
 
 async function loadEmployees(){
   const { data: emps, error: e1 } = await sb.from("employees").select("*").order("name");
@@ -441,8 +438,6 @@ function setPage(p){
   document.getElementById("tab-reports").classList.toggle("active", p==="reports");
   document.getElementById("tab-org").classList.toggle("active", p==="org");
   document.getElementById("tab-myprofile").classList.toggle("active", p==="myprofile");
-  document.getElementById("tab-myteam").classList.toggle("active", p==="myteam");
-  document.getElementById("tab-requests").classList.toggle("active", p==="requests");
   document.getElementById("tab-users").classList.toggle("active", p==="users");
   renderApp();
 }
@@ -1004,27 +999,14 @@ function pickDeptIcon(name){
   return DEPT_ICONS.default;
 }
 /* ============== RENDER: MY PROFILE (employee self-service, read-only) ============== */
-let myRequestsCache = [];
-async function renderMyProfile(){
+function renderMyProfile(){
   const me = currentUserEmployeeId ? employees.find(e=>e.id===currentUserEmployeeId) : null;
   if(!me){
-    document.getElementById("app").innerHTML = `<div class="content"><div class="empty-state">
+    return `<div class="content"><div class="empty-state">
       <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:17px;color:var(--ink);margin-bottom:6px;">لا يوجد ملف موظف مرتبط بحسابك</div>
       <div style="font-size:13px;">تواصل مع مدير النظام عشان يربط حسابك ببياناتك.</div>
     </div></div>`;
-    return;
   }
-  const { data, error } = await sb.from("leave_requests").select("*").eq("employee_id", me.id).order("created_at", { ascending: false });
-  if(error){ showToast("فشل تحميل طلبات الإجازة: " + error.message); }
-  myRequestsCache = data || [];
-  document.getElementById("app").innerHTML = buildMyProfileHTML(me);
-}
-const REQUEST_STATUS = {
-  pending: { label: "قيد الانتظار", color: "#C98A2C", light: "#FAF0DF" },
-  approved: { label: "مقبولة", color: "#146356", light: "#E4EFEC" },
-  rejected: { label: "مرفوضة", color: "#B23A48", light: "#F7E7E8" },
-};
-function buildMyProfileHTML(me){
   const leaveCards = Object.keys(LEAVE_TYPES).map(key=>{
     const t = LEAVE_TYPES[key]; const l = me.leaves[key];
     return `<div class="leave-card" style="border-top-color:${t.color}">
@@ -1034,30 +1016,11 @@ function buildMyProfileHTML(me){
     </div>`;
   }).join("");
 
-  const requestsHTML = myRequestsCache.length===0 ? `
-    <div style="color:var(--ink-soft);border:1px dashed var(--border);border-radius:12px;text-align:center;padding:20px;font-size:13px;">لا توجد طلبات إجازة بعد.</div>` : `
-    <div class="table-wrap">
-      <table class="datatable">
-        <thead><tr><th>النوع</th><th>من</th><th>إلى</th><th>الأيام</th><th>الحالة</th></tr></thead>
-        <tbody>${myRequestsCache.map(r=>{
-          const t = LEAVE_TYPES[r.type] || LEAVE_TYPES.annual;
-          const s = REQUEST_STATUS[r.status] || REQUEST_STATUS.pending;
-          return `<tr>
-            <td><span class="badge" style="background:${t.light};color:${t.color};">${t.label}</span></td>
-            <td style="color:var(--ink-soft);">${fmtDate(r.start_date)}</td>
-            <td style="color:var(--ink-soft);">${fmtDate(r.end_date)}</td>
-            <td><strong>${r.days}</strong></td>
-            <td><span class="badge" style="background:${s.light};color:${s.color};">${s.label}</span></td>
-          </tr>`;
-        }).join("")}</tbody>
-      </table>
-    </div>`;
-
   return `
   <div class="content">
     <div class="card" style="border-top:4px solid var(--primary);margin-bottom:20px;">
       <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:18px;margin-bottom:4px;">أهلًا ${esc(me.name)}</div>
-      <div style="color:var(--ink-soft);font-size:13px;">هذه بياناتك الشخصية ورصيد إجازاتك — للقراءة فقط. لطلب إجازة استخدم الزر بالأسفل.</div>
+      <div style="color:var(--ink-soft);font-size:13px;">هذه بياناتك الشخصية ورصيد إجازاتك — للقراءة فقط. أي تعديل يحتاج مدير النظام.</div>
     </div>
 
     <div class="card">
@@ -1081,57 +1044,9 @@ function buildMyProfileHTML(me){
     <div class="section-title" style="margin-top:20px;">رصيد إجازاتي</div>
     <div class="leave-cards" style="margin-bottom:24px;">${leaveCards}</div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <div class="section-title" style="margin:0;">طلبات إجازتي</div>
-      <button class="btn btn-primary btn-sm" onclick="openRequestLeaveModal()">+ طلب إجازة</button>
-    </div>
-    ${requestsHTML}
-
-    <div class="section-title" style="margin-top:24px;">أيامي المأخوذة (مقسّمة شهريًا)</div>
+    <div class="section-title">أيامي المأخوذة (مقسّمة شهريًا)</div>
     ${renderGroupedRecords(me.records||[], false)}
   </div>`;
-}
-function openRequestLeaveModal(){
-  document.getElementById("modalRoot").innerHTML = `
-  <div class="modal-overlay" onclick="if(event.target===this) closeModal();">
-    <div class="modal-box">
-      <div class="modal-head"><h3>طلب إجازة جديد</h3><button onclick="closeModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
-      <div id="modal-error-box" style="display:none;color:var(--danger);font-size:12px;margin-bottom:10px;"></div>
-      <div class="field"><label>نوع الإجازة</label>
-        <select id="rq-type">${Object.keys(LEAVE_TYPES).map(k=>`<option value="${k}">${LEAVE_TYPES[k].label}</option>`).join("")}</select>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>تاريخ البداية</label><input id="rq-start" type="date" oninput="updateRequestDaysPreview()"></div>
-        <div class="field"><label>تاريخ النهاية</label><input id="rq-end" type="date" oninput="updateRequestDaysPreview()"></div>
-      </div>
-      <div style="color:var(--ink-soft);font-size:13px;margin-bottom:10px;">عدد الأيام: <strong id="rq-days-preview" style="color:var(--ink);">0</strong></div>
-      <div class="field"><label>ملاحظات (اختياري)</label><textarea id="rq-notes" rows="2"></textarea></div>
-      <button id="rq-submit-btn" class="btn btn-primary" style="width:100%;padding:11px;" onclick="submitLeaveRequest()">إرسال الطلب</button>
-      <div class="backup-note" style="margin-top:10px;">سيُرسل طلبك لمدير قسمك أو للإدمن للموافقة عليه، ولن يُخصم من رصيدك إلا بعد الموافقة.</div>
-    </div>
-  </div>`;
-}
-function updateRequestDaysPreview(){
-  const s = document.getElementById("rq-start").value, e = document.getElementById("rq-end").value;
-  document.getElementById("rq-days-preview").textContent = daysBetween(s,e) || 0;
-}
-async function submitLeaveRequest(){
-  const type = document.getElementById("rq-type").value;
-  const startDate = document.getElementById("rq-start").value;
-  const endDate = document.getElementById("rq-end").value;
-  const notes = document.getElementById("rq-notes").value.trim();
-  const days = daysBetween(startDate, endDate);
-  setFormError("");
-  if(!startDate || !endDate || days<=0){ setFormError("تحقق من التواريخ المدخلة"); return; }
-  setBtnLoading("rq-submit-btn", true, "جارِ الإرسال...", "إرسال الطلب");
-  const { error } = await sb.from("leave_requests").insert({
-    employee_id: currentUserEmployeeId, type, start_date: startDate, end_date: endDate, days, notes: notes || null,
-  });
-  setBtnLoading("rq-submit-btn", false, "جارِ الإرسال...", "إرسال الطلب");
-  if(error){ setFormError("فشل إرسال الطلب: " + error.message); return; }
-  closeModal();
-  showToast("تم إرسال طلب الإجازة، بانتظار الموافقة");
-  await renderMyProfile();
 }
 
 /* ============== RENDER: USERS (admin only) ============== */
@@ -1149,14 +1064,12 @@ async function renderUsersPage(){
 }
 function buildUsersPageHTML(){
   const empOptions = employees.map(e=>`<option value="${e.id}">${esc(e.name)} (#${esc(e.employeeNumber)})</option>`).join("");
-  const deptOptions = departments.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join("");
   const rows = usersCache.map(u => `
     <tr>
       <td>${esc(u.email)}</td>
       <td>
         <select onchange="updateUserRole('${u.id}', this.value)" style="border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;">
           <option value="employee" ${u.role==="employee"?"selected":""}>Employee</option>
-          <option value="manager" ${u.role==="manager"?"selected":""}>Manager</option>
           <option value="admin" ${u.role==="admin"?"selected":""}>Admin</option>
         </select>
       </td>
@@ -1166,18 +1079,12 @@ function buildUsersPageHTML(){
           ${employees.map(e=>`<option value="${e.id}" ${u.employee_id===e.id?"selected":""}>${esc(e.name)} (#${esc(e.employeeNumber)})</option>`).join("")}
         </select>
       </td>
-      <td>
-        <select onchange="updateUserManagedDept('${u.id}', this.value)" style="border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;min-width:140px;">
-          <option value="">— بدون قسم —</option>
-          ${departments.map(d=>`<option value="${d.id}" ${u.managed_department_id===d.id?"selected":""}>${esc(d.name)}</option>`).join("")}
-        </select>
-      </td>
     </tr>`).join("");
 
   return `
   <div class="content">
     <div class="section-title">إدارة المستخدمين</div>
-    <div class="backup-note" style="margin-bottom:14px;">Admin يشوف ويعدّل كل شي. Manager يشوف بس بيانات موظفي قسمه المحدد ويقدر يوافق/يرفض طلبات إجازتهم. Employee يشوف بياناته فقط.</div>
+    <div class="backup-note" style="margin-bottom:14px;">حدد لكل حساب صلاحيته (Admin يشوف ويعدّل كل شي، Employee يشوف بياناته فقط)، ولو Employee اربطه بالموظف المطابق له.</div>
 
     <div class="card" style="margin-bottom:20px;">
       <div class="section-title" style="margin-bottom:10px;">إضافة حساب جديد</div>
@@ -1188,14 +1095,11 @@ function buildUsersPageHTML(){
       </div>
       <div class="field-row">
         <div class="field"><label>الصلاحية</label>
-          <select id="nu-role"><option value="employee">Employee</option><option value="manager">Manager</option><option value="admin">Admin</option></select>
+          <select id="nu-role"><option value="employee">Employee</option><option value="admin">Admin</option></select>
         </div>
         <div class="field"><label>ربط بموظف (اختياري)</label>
           <select id="nu-employee"><option value="">— بدون ربط —</option>${empOptions}</select>
         </div>
-      </div>
-      <div class="field"><label>القسم اللي يديره (لو الصلاحية Manager)</label>
-        <select id="nu-dept"><option value="">— بدون قسم —</option>${deptOptions}</select>
       </div>
       <button id="nu-submit-btn" class="btn btn-primary" style="padding:10px 20px;" onclick="submitNewUser()">إضافة الحساب</button>
       <div class="backup-note" style="margin-top:10px;">يحتاج هذا الزر أن تكون قد نشرت Edge Function باسم <code>create-user</code> في مشروع Supabase (الملف اللي عطيتك إياه). بدونه هذا الزر ما بيشتغل.</div>
@@ -1203,8 +1107,8 @@ function buildUsersPageHTML(){
 
     <div class="table-wrap">
       <table class="datatable">
-        <thead><tr><th>البريد الإلكتروني</th><th>الصلاحية</th><th>الموظف المرتبط</th><th>القسم المُدار</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="4" style="text-align:center;color:var(--ink-soft);">لا يوجد مستخدمون</td></tr>`}</tbody>
+        <thead><tr><th>البريد الإلكتروني</th><th>الصلاحية</th><th>الموظف المرتبط</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="3" style="text-align:center;color:var(--ink-soft);">لا يوجد مستخدمون</td></tr>`}</tbody>
       </table>
     </div>
   </div>`;
@@ -1221,25 +1125,18 @@ async function updateUserEmployee(userId, employeeId){
   showToast("تم ربط الحساب بالموظف");
   const u = usersCache.find(x=>x.id===userId); if(u) u.employee_id = employeeId || null;
 }
-async function updateUserManagedDept(userId, deptId){
-  const { error } = await sb.from("profiles").upsert({ id: userId, managed_department_id: deptId || null });
-  if(error){ showToast("فشل التحديث: " + error.message); return; }
-  showToast("تم تحديد القسم اللي يديره الحساب");
-  const u = usersCache.find(x=>x.id===userId); if(u) u.managed_department_id = deptId || null;
-}
 async function submitNewUser(){
   const email = document.getElementById("nu-email").value.trim();
   const password = document.getElementById("nu-pass").value;
   const role = document.getElementById("nu-role").value;
   const employee_id = document.getElementById("nu-employee").value || null;
-  const managed_department_id = document.getElementById("nu-dept").value || null;
   setFormError("");
   if(!email || !password || password.length < 6){ setFormError("أدخل بريد صحيح وكلمة مرور 6 أحرف على الأقل"); return; }
   setBtnLoading("nu-submit-btn", true, "جارِ الإضافة...", "إضافة الحساب");
   const { data: { session } } = await sb.auth.getSession();
   try {
     const { data, error } = await sb.functions.invoke("create-user", {
-      body: { email, password, role, employee_id, managed_department_id },
+      body: { email, password, role, employee_id },
       headers: { Authorization: "Bearer " + session.access_token },
     });
     setBtnLoading("nu-submit-btn", false, "جارِ الإضافة...", "إضافة الحساب");
@@ -1255,68 +1152,6 @@ async function submitNewUser(){
     setBtnLoading("nu-submit-btn", false, "جارِ الإضافة...", "إضافة الحساب");
     setFormError("فشلت الإضافة: " + e.message);
   }
-}
-
-/* ============== RENDER: LEAVE REQUESTS (admin + manager) ============== */
-let requestsCache = [];
-let requestsFilter = "pending";
-async function renderRequestsPage(){
-  document.getElementById("app").innerHTML = `<div class="content"><div class="empty-state">جارِ تحميل الطلبات...</div></div>`;
-  const { data, error } = await sb.rpc("list_leave_requests");
-  if(error){
-    document.getElementById("app").innerHTML = `<div class="content"><div class="empty-state" style="color:var(--danger);">فشل تحميل الطلبات: ${esc(error.message)}</div></div>`;
-    return;
-  }
-  requestsCache = data || [];
-  document.getElementById("app").innerHTML = buildRequestsPageHTML();
-}
-function buildRequestsPageHTML(){
-  const filtered = requestsCache.filter(r => requestsFilter==="all" ? true : r.status===requestsFilter);
-  const rows = filtered.map(r=>{
-    const t = LEAVE_TYPES[r.type] || LEAVE_TYPES.annual;
-    const s = REQUEST_STATUS[r.status] || REQUEST_STATUS.pending;
-    return `<tr>
-      <td><strong>${esc(r.employee_name)}</strong> <span style="color:var(--ink-soft);">#${esc(r.employee_number)}</span></td>
-      <td><span class="badge" style="background:${t.light};color:${t.color};">${t.label}</span></td>
-      <td style="color:var(--ink-soft);">${fmtDate(r.start_date)}</td>
-      <td style="color:var(--ink-soft);">${fmtDate(r.end_date)}</td>
-      <td><strong>${r.days}</strong></td>
-      <td style="color:var(--ink-soft);max-width:160px;">${esc(r.notes)||"—"}</td>
-      <td><span class="badge" style="background:${s.light};color:${s.color};">${s.label}</span></td>
-      <td>${r.status==="pending" ? `
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-primary btn-sm" onclick="decideRequest('${r.id}','approve')">قبول</button>
-          <button class="btn btn-danger-outline btn-sm" onclick="decideRequest('${r.id}','reject')">رفض</button>
-        </div>` : `<span style="color:var(--ink-soft);font-size:12px;">—</span>`}
-      </td>
-    </tr>`;
-  }).join("");
-
-  return `
-  <div class="content">
-    <div class="section-title">طلبات الإجازة</div>
-    <div class="backup-note" style="margin-bottom:14px;">القبول يسجّل الإجازة تلقائيًا ويخصمها من رصيد الموظف. الرفض لا يغيّر الرصيد.</div>
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-      ${["pending","approved","rejected","all"].map(f=>`
-        <button class="btn ${requestsFilter===f?'btn-primary':'btn-outline'} btn-sm" onclick="requestsFilter='${f}'; renderRequestsPage();">
-          ${f==="pending"?"قيد الانتظار":f==="approved"?"مقبولة":f==="rejected"?"مرفوضة":"الكل"}
-        </button>`).join("")}
-    </div>
-    <div class="table-wrap">
-      <table class="datatable">
-        <thead><tr><th>الموظف</th><th>النوع</th><th>من</th><th>إلى</th><th>الأيام</th><th>ملاحظات</th><th>الحالة</th><th>إجراءات</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="8" style="text-align:center;color:var(--ink-soft);">لا توجد طلبات</td></tr>`}</tbody>
-      </table>
-    </div>
-  </div>`;
-}
-async function decideRequest(id, action){
-  const fnName = action === "approve" ? "approve_leave_request" : "reject_leave_request";
-  const { error } = await sb.rpc(fnName, { request_id: id });
-  if(error){ showToast("فشل: " + error.message); return; }
-  showToast(action==="approve" ? "تمت الموافقة على الطلب وخصم الرصيد" : "تم رفض الطلب");
-  if(action==="approve") await loadEmployees();
-  await renderRequestsPage();
 }
 
 function renderDeptNode(dep, withStem){
@@ -1595,77 +1430,16 @@ function openConfirmModal(message, onConfirm){
 function renderApp(){
   document.getElementById("empCount").textContent = employees.length + " موظف";
   if(page==="users"){ renderUsersPage(); return; }
-  if(page==="requests"){ renderRequestsPage(); return; }
-  if(page==="myprofile"){ renderMyProfile(); return; }
   let view;
   if(page==="leaves") view = renderLeaves();
   else if(page==="reports") view = renderReports();
   else if(page==="org") view = renderOrgChart();
-  else if(page==="myteam") view = renderMyTeam();
+  else if(page==="myprofile") view = renderMyProfile();
   else if(page==="pending") view = renderPending();
   else view = renderHome();
   document.getElementById("app").innerHTML = view;
 }
 function renderAll(){ renderApp(); }
-/* ============== RENDER: MY TEAM (manager, read-only) ============== */
-let teamSearch = "";
-let teamSelectedId = null;
-function renderMyTeam(){
-  const filtered = employees.filter(e => !teamSearch.trim() ||
-    e.name.includes(teamSearch) || (e.employeeNumber||"").includes(teamSearch));
-  const selected = employees.find(e=>e.id===teamSelectedId) || null;
-
-  return `
-  <div class="layout">
-    <aside class="sidebar">
-      <div class="search-wrap">
-        <input placeholder="ابحث بالاسم أو الرقم..." value="${esc(teamSearch)}" oninput="teamSearch=this.value; renderApp();">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-      </div>
-      ${filtered.length===0 ? `<div style="color:var(--ink-soft);font-size:13px;text-align:center;padding:24px 0;">لا يوجد موظفون بفريقك بعد.</div>` : `
-      <div>${filtered.map(emp => `
-        <button class="emp-row ${selected && selected.id===emp.id ? 'selected':''}" onclick="teamSelectedId='${emp.id}'; renderApp();">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <div class="emp-avatar">${esc(emp.name[0]||'؟')}</div>
-            <div><div class="emp-name">${esc(emp.name)}</div><div class="emp-sub">#${esc(emp.employeeNumber)}</div></div>
-          </div>
-        </button>`).join("")}</div>`}
-    </aside>
-    <main class="content">
-      ${!selected ? `
-      <div class="empty-state">
-        <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:17px;color:var(--ink);margin-bottom:4px;">اختر موظفًا من فريقك</div>
-        <div style="font-size:13px;">لعرض بياناته ورصيد إجازاته (للقراءة فقط)</div>
-      </div>` : `
-      <div class="card">
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
-          <div style="background:var(--primary);width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Cairo',sans-serif;font-weight:800;font-size:24px;">${esc(selected.name[0]||'؟')}</div>
-          <div>
-            <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:21px;">${esc(selected.name)}</div>
-            <div style="color:var(--ink-soft);font-size:13px;">${esc(selected.department)||"بدون قسم محدد"}</div>
-          </div>
-        </div>
-        <div class="info-grid">
-          <div class="info-field"><div class="info-label">الرقم الوظيفي</div><div class="info-value">#${esc(selected.employeeNumber)}</div></div>
-          <div class="info-field"><div class="info-label">العمر</div><div class="info-value">${selected.age?selected.age+' سنة':'—'}</div></div>
-          <div class="info-field"><div class="info-label">سنوات الخبرة</div><div class="info-value">${selected.experience!=null?selected.experience+' سنة':'—'}</div></div>
-          <div class="info-field"><div class="info-label">تاريخ الالتحاق</div><div class="info-value">${fmtDate(selected.joinDate)}</div></div>
-        </div>
-      </div>
-      <div class="section-title">رصيد الإجازات</div>
-      <div class="leave-cards">${Object.keys(LEAVE_TYPES).map(key=>{
-        const t = LEAVE_TYPES[key]; const l = selected.leaves[key];
-        return `<div class="leave-card" style="border-top-color:${t.color}">
-          <div class="lt-title" style="color:${t.color}">إجازة ${t.label}</div>
-          <div style="font-size:12px;color:var(--ink-soft);">الرصيد: ${l.balance} · المستخدم: ${l.taken}</div>
-          <div class="rem-pill" style="background:${t.light};color:${t.color};margin-top:8px;"><span>المتبقي</span><span>${remaining(l)}</span></div>
-        </div>`;
-      }).join("")}</div>
-      `}
-    </main>
-  </div>`;
-}
-
 function renderPending(){
   return `
   <div class="content">
@@ -1723,15 +1497,12 @@ async function showApp(){
   const { data: profile } = await sb.from("profiles").select("*").eq("id", currentUserId).maybeSingle();
   currentUserRole = profile ? profile.role : null;
   currentUserEmployeeId = profile ? profile.employee_id : null;
-  currentUserManagedDeptId = profile ? profile.managed_department_id : null;
 
   await loadAll();
   applyRoleUI();
 
   if(currentUserRole === "admin"){
     setPage("home");
-  } else if(currentUserRole === "manager"){
-    setPage("myteam");
   } else if(currentUserRole === "employee"){
     setPage("org");
   } else {
@@ -1740,15 +1511,11 @@ async function showApp(){
 }
 function applyRoleUI(){
   const isAdmin = currentUserRole === "admin";
-  const isManager = currentUserRole === "manager";
-  const isEmployee = currentUserRole === "employee";
   document.getElementById("tab-home").style.display = isAdmin ? "" : "none";
   document.getElementById("tab-leaves").style.display = isAdmin ? "" : "none";
   document.getElementById("tab-reports").style.display = isAdmin ? "" : "none";
   document.getElementById("tab-users").style.display = isAdmin ? "" : "none";
-  document.getElementById("tab-myprofile").style.display = isEmployee ? "" : "none";
-  document.getElementById("tab-myteam").style.display = isManager ? "" : "none";
-  document.getElementById("tab-requests").style.display = (isAdmin || isManager) ? "" : "none";
+  document.getElementById("tab-myprofile").style.display = isAdmin ? "none" : (currentUserRole==="employee" ? "" : "none");
   document.getElementById("newEmployeeBtn").style.display = isAdmin ? "" : "none";
   document.getElementById("backupBtn").style.display = isAdmin ? "" : "none";
 }
