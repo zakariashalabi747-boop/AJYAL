@@ -196,6 +196,7 @@
   <button id="tab-reports" onclick="setPage('reports')">التقارير</button>
   <button id="tab-org" onclick="setPage('org')">الهيكل التنظيمي</button>
   <button id="tab-myprofile" onclick="setPage('myprofile')" style="display:none;">بياناتي</button>
+  <button id="tab-myteam" onclick="setPage('myteam')" style="display:none;">فريقي</button>
   <button id="tab-users" onclick="setPage('users')" style="display:none;">المستخدمون</button>
 </nav>
 
@@ -229,6 +230,7 @@ let currentUserEmail = "";
 let currentUserId = "";
 let currentUserRole = null;
 let currentUserEmployeeId = null;
+let currentUserManagedDeptId = null;
 
 async function loadEmployees(){
   const { data: emps, error: e1 } = await sb.from("employees").select("*").order("name");
@@ -438,6 +440,7 @@ function setPage(p){
   document.getElementById("tab-reports").classList.toggle("active", p==="reports");
   document.getElementById("tab-org").classList.toggle("active", p==="org");
   document.getElementById("tab-myprofile").classList.toggle("active", p==="myprofile");
+  document.getElementById("tab-myteam").classList.toggle("active", p==="myteam");
   document.getElementById("tab-users").classList.toggle("active", p==="users");
   renderApp();
 }
@@ -998,6 +1001,7 @@ function pickDeptIcon(name){
   if(/business|أعمال|اعمال|مبيعات/.test(n)) return DEPT_ICONS.business;
   return DEPT_ICONS.default;
 }
+
 /* ============== RENDER: MY PROFILE (employee self-service, read-only) ============== */
 function renderMyProfile(){
   const me = currentUserEmployeeId ? employees.find(e=>e.id===currentUserEmployeeId) : null;
@@ -1064,12 +1068,14 @@ async function renderUsersPage(){
 }
 function buildUsersPageHTML(){
   const empOptions = employees.map(e=>`<option value="${e.id}">${esc(e.name)} (#${esc(e.employeeNumber)})</option>`).join("");
+  const deptOptions = departments.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join("");
   const rows = usersCache.map(u => `
     <tr>
       <td>${esc(u.email)}</td>
       <td>
         <select onchange="updateUserRole('${u.id}', this.value)" style="border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;">
           <option value="employee" ${u.role==="employee"?"selected":""}>Employee</option>
+          <option value="manager" ${u.role==="manager"?"selected":""}>Manager</option>
           <option value="admin" ${u.role==="admin"?"selected":""}>Admin</option>
         </select>
       </td>
@@ -1079,12 +1085,18 @@ function buildUsersPageHTML(){
           ${employees.map(e=>`<option value="${e.id}" ${u.employee_id===e.id?"selected":""}>${esc(e.name)} (#${esc(e.employeeNumber)})</option>`).join("")}
         </select>
       </td>
+      <td>
+        <select onchange="updateUserManagedDept('${u.id}', this.value)" style="border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;min-width:140px;">
+          <option value="">— بدون قسم —</option>
+          ${departments.map(d=>`<option value="${d.id}" ${u.managed_department_id===d.id?"selected":""}>${esc(d.name)}</option>`).join("")}
+        </select>
+      </td>
     </tr>`).join("");
 
   return `
   <div class="content">
     <div class="section-title">إدارة المستخدمين</div>
-    <div class="backup-note" style="margin-bottom:14px;">حدد لكل حساب صلاحيته (Admin يشوف ويعدّل كل شي، Employee يشوف بياناته فقط)، ولو Employee اربطه بالموظف المطابق له.</div>
+    <div class="backup-note" style="margin-bottom:14px;">Admin يشوف ويعدّل كل شي. Manager يشوف بس بيانات موظفي قسمه المحدد ويقدر يوافق/يرفض طلبات إجازتهم. Employee يشوف بياناته فقط.</div>
 
     <div class="card" style="margin-bottom:20px;">
       <div class="section-title" style="margin-bottom:10px;">إضافة حساب جديد</div>
@@ -1095,11 +1107,14 @@ function buildUsersPageHTML(){
       </div>
       <div class="field-row">
         <div class="field"><label>الصلاحية</label>
-          <select id="nu-role"><option value="employee">Employee</option><option value="admin">Admin</option></select>
+          <select id="nu-role"><option value="employee">Employee</option><option value="manager">Manager</option><option value="admin">Admin</option></select>
         </div>
         <div class="field"><label>ربط بموظف (اختياري)</label>
           <select id="nu-employee"><option value="">— بدون ربط —</option>${empOptions}</select>
         </div>
+      </div>
+      <div class="field"><label>القسم اللي يديره (لو الصلاحية Manager)</label>
+        <select id="nu-dept"><option value="">— بدون قسم —</option>${deptOptions}</select>
       </div>
       <button id="nu-submit-btn" class="btn btn-primary" style="padding:10px 20px;" onclick="submitNewUser()">إضافة الحساب</button>
       <div class="backup-note" style="margin-top:10px;">يحتاج هذا الزر أن تكون قد نشرت Edge Function باسم <code>create-user</code> في مشروع Supabase (الملف اللي عطيتك إياه). بدونه هذا الزر ما بيشتغل.</div>
@@ -1107,8 +1122,8 @@ function buildUsersPageHTML(){
 
     <div class="table-wrap">
       <table class="datatable">
-        <thead><tr><th>البريد الإلكتروني</th><th>الصلاحية</th><th>الموظف المرتبط</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="3" style="text-align:center;color:var(--ink-soft);">لا يوجد مستخدمون</td></tr>`}</tbody>
+        <thead><tr><th>البريد الإلكتروني</th><th>الصلاحية</th><th>الموظف المرتبط</th><th>القسم المُدار</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="4" style="text-align:center;color:var(--ink-soft);">لا يوجد مستخدمون</td></tr>`}</tbody>
       </table>
     </div>
   </div>`;
@@ -1125,18 +1140,25 @@ async function updateUserEmployee(userId, employeeId){
   showToast("تم ربط الحساب بالموظف");
   const u = usersCache.find(x=>x.id===userId); if(u) u.employee_id = employeeId || null;
 }
+async function updateUserManagedDept(userId, deptId){
+  const { error } = await sb.from("profiles").upsert({ id: userId, managed_department_id: deptId || null });
+  if(error){ showToast("فشل التحديث: " + error.message); return; }
+  showToast("تم تحديد القسم اللي يديره الحساب");
+  const u = usersCache.find(x=>x.id===userId); if(u) u.managed_department_id = deptId || null;
+}
 async function submitNewUser(){
   const email = document.getElementById("nu-email").value.trim();
   const password = document.getElementById("nu-pass").value;
   const role = document.getElementById("nu-role").value;
   const employee_id = document.getElementById("nu-employee").value || null;
+  const managed_department_id = document.getElementById("nu-dept").value || null;
   setFormError("");
   if(!email || !password || password.length < 6){ setFormError("أدخل بريد صحيح وكلمة مرور 6 أحرف على الأقل"); return; }
   setBtnLoading("nu-submit-btn", true, "جارِ الإضافة...", "إضافة الحساب");
   const { data: { session } } = await sb.auth.getSession();
   try {
     const { data, error } = await sb.functions.invoke("create-user", {
-      body: { email, password, role, employee_id },
+      body: { email, password, role, employee_id, managed_department_id },
       headers: { Authorization: "Bearer " + session.access_token },
     });
     setBtnLoading("nu-submit-btn", false, "جارِ الإضافة...", "إضافة الحساب");
@@ -1435,11 +1457,71 @@ function renderApp(){
   else if(page==="reports") view = renderReports();
   else if(page==="org") view = renderOrgChart();
   else if(page==="myprofile") view = renderMyProfile();
+  else if(page==="myteam") view = renderMyTeam();
   else if(page==="pending") view = renderPending();
   else view = renderHome();
   document.getElementById("app").innerHTML = view;
 }
 function renderAll(){ renderApp(); }
+/* ============== RENDER: MY TEAM (manager, read-only) ============== */
+let teamSearch = "";
+let teamSelectedId = null;
+function renderMyTeam(){
+  const filtered = employees.filter(e => !teamSearch.trim() ||
+    e.name.includes(teamSearch) || (e.employeeNumber||"").includes(teamSearch));
+  const selected = employees.find(e=>e.id===teamSelectedId) || null;
+
+  return `
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="search-wrap">
+        <input placeholder="ابحث بالاسم أو الرقم..." value="${esc(teamSearch)}" oninput="teamSearch=this.value; renderApp();">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+      ${filtered.length===0 ? `<div style="color:var(--ink-soft);font-size:13px;text-align:center;padding:24px 0;">لا يوجد موظفون بفريقك بعد.</div>` : `
+      <div>${filtered.map(emp => `
+        <button class="emp-row ${selected && selected.id===emp.id ? 'selected':''}" onclick="teamSelectedId='${emp.id}'; renderApp();">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="emp-avatar">${esc(emp.name[0]||'؟')}</div>
+            <div><div class="emp-name">${esc(emp.name)}</div><div class="emp-sub">#${esc(emp.employeeNumber)}</div></div>
+          </div>
+        </button>`).join("")}</div>`}
+    </aside>
+    <main class="content">
+      ${!selected ? `
+      <div class="empty-state">
+        <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:17px;color:var(--ink);margin-bottom:4px;">اختر موظفًا من فريقك</div>
+        <div style="font-size:13px;">لعرض بياناته ورصيد إجازاته (للقراءة فقط)</div>
+      </div>` : `
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
+          <div style="background:var(--primary);width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Cairo',sans-serif;font-weight:800;font-size:24px;">${esc(selected.name[0]||'؟')}</div>
+          <div>
+            <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:21px;">${esc(selected.name)}</div>
+            <div style="color:var(--ink-soft);font-size:13px;">${esc(selected.department)||"بدون قسم محدد"}</div>
+          </div>
+        </div>
+        <div class="info-grid">
+          <div class="info-field"><div class="info-label">الرقم الوظيفي</div><div class="info-value">#${esc(selected.employeeNumber)}</div></div>
+          <div class="info-field"><div class="info-label">العمر</div><div class="info-value">${selected.age?selected.age+' سنة':'—'}</div></div>
+          <div class="info-field"><div class="info-label">سنوات الخبرة</div><div class="info-value">${selected.experience!=null?selected.experience+' سنة':'—'}</div></div>
+          <div class="info-field"><div class="info-label">تاريخ الالتحاق</div><div class="info-value">${fmtDate(selected.joinDate)}</div></div>
+        </div>
+      </div>
+      <div class="section-title">رصيد الإجازات</div>
+      <div class="leave-cards">${Object.keys(LEAVE_TYPES).map(key=>{
+        const t = LEAVE_TYPES[key]; const l = selected.leaves[key];
+        return `<div class="leave-card" style="border-top-color:${t.color}">
+          <div class="lt-title" style="color:${t.color}">إجازة ${t.label}</div>
+          <div style="font-size:12px;color:var(--ink-soft);">الرصيد: ${l.balance} · المستخدم: ${l.taken}</div>
+          <div class="rem-pill" style="background:${t.light};color:${t.color};margin-top:8px;"><span>المتبقي</span><span>${remaining(l)}</span></div>
+        </div>`;
+      }).join("")}</div>
+      `}
+    </main>
+  </div>`;
+}
+
 function renderPending(){
   return `
   <div class="content">
@@ -1497,12 +1579,15 @@ async function showApp(){
   const { data: profile } = await sb.from("profiles").select("*").eq("id", currentUserId).maybeSingle();
   currentUserRole = profile ? profile.role : null;
   currentUserEmployeeId = profile ? profile.employee_id : null;
+  currentUserManagedDeptId = profile ? profile.managed_department_id : null;
 
   await loadAll();
   applyRoleUI();
 
   if(currentUserRole === "admin"){
     setPage("home");
+  } else if(currentUserRole === "manager"){
+    setPage("myteam");
   } else if(currentUserRole === "employee"){
     setPage("org");
   } else {
@@ -1511,11 +1596,14 @@ async function showApp(){
 }
 function applyRoleUI(){
   const isAdmin = currentUserRole === "admin";
+  const isManager = currentUserRole === "manager";
+  const isEmployee = currentUserRole === "employee";
   document.getElementById("tab-home").style.display = isAdmin ? "" : "none";
   document.getElementById("tab-leaves").style.display = isAdmin ? "" : "none";
   document.getElementById("tab-reports").style.display = isAdmin ? "" : "none";
   document.getElementById("tab-users").style.display = isAdmin ? "" : "none";
-  document.getElementById("tab-myprofile").style.display = isAdmin ? "none" : (currentUserRole==="employee" ? "" : "none");
+  document.getElementById("tab-myprofile").style.display = isEmployee ? "" : "none";
+  document.getElementById("tab-myteam").style.display = isManager ? "" : "none";
   document.getElementById("newEmployeeBtn").style.display = isAdmin ? "" : "none";
   document.getElementById("backupBtn").style.display = isAdmin ? "" : "none";
 }
