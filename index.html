@@ -1466,10 +1466,22 @@ function renderAll(){ renderApp(); }
 /* ============== RENDER: MY TEAM (manager, read-only) ============== */
 let teamSearch = "";
 let teamSelectedId = null;
+function myManagedScopeIds(){
+  const ids = new Set();
+  function walk(id){
+    if(!id || ids.has(id)) return;
+    ids.add(id);
+    departments.filter(d=>d.parentId===id).forEach(child=>walk(child.id));
+  }
+  walk(currentUserManagedDeptId);
+  return ids;
+}
 function renderMyTeam(){
-  const filtered = employees.filter(e => !teamSearch.trim() ||
+  const scope = myManagedScopeIds();
+  const teamEmployees = currentUserManagedDeptId ? employees.filter(e => scope.has(e.departmentId)) : [];
+  const filtered = teamEmployees.filter(e => !teamSearch.trim() ||
     e.name.includes(teamSearch) || (e.employeeNumber||"").includes(teamSearch));
-  const selected = employees.find(e=>e.id===teamSelectedId) || null;
+  const selected = filtered.find(e=>e.id===teamSelectedId) || null;
 
   return `
   <div class="layout">
@@ -1478,7 +1490,7 @@ function renderMyTeam(){
         <input placeholder="ابحث بالاسم أو الرقم..." value="${esc(teamSearch)}" oninput="teamSearch=this.value; renderApp();">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
       </div>
-      ${filtered.length===0 ? `<div style="color:var(--ink-soft);font-size:13px;text-align:center;padding:24px 0;">لا يوجد موظفون بفريقك بعد.</div>` : `
+      ${filtered.length===0 ? `<div style="color:var(--ink-soft);font-size:13px;text-align:center;padding:24px 0;">${currentUserManagedDeptId ? "لا يوجد موظفون بقسمك بعد." : "حسابك غير مربوط بأي قسم بعد. تواصل مع مدير النظام."}</div>` : `
       <div>${filtered.map(emp => `
         <button class="emp-row ${selected && selected.id===emp.id ? 'selected':''}" onclick="teamSelectedId='${emp.id}'; renderApp();">
           <div style="display:flex;align-items:center;gap:10px;">
@@ -1608,7 +1620,7 @@ function applyRoleUI(){
   document.getElementById("backupBtn").style.display = isAdmin ? "" : "none";
 }
 
-
+/* ============== INIT ============== */
 checkSession();
 </script>
 </body>
